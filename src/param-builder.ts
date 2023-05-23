@@ -81,7 +81,10 @@ export type BuildOptions = {
   /**
    * The signature to apply
    */
-  signature?: {
+  signature?: SignatureOptions;
+};
+
+export type SignatureOptions = {
     /**
      * The hex-encoded key of the signature
      */
@@ -98,7 +101,6 @@ export type BuildOptions = {
      * Defaults to 32
      */
     size?: number;
-  };
 };
 
 class ParamBuilder {
@@ -106,11 +108,14 @@ class ParamBuilder {
    * The currently applied imgproxy modifiers
    */
   public readonly modifiers: Map<keyof ParamBuilder, string>;
+  private readonly signatureOpts: SignatureOptions | undefined;
 
   public constructor(
     initialModifiers: Map<keyof ParamBuilder, string> = new Map(),
+    signatureOpts?: SignatureOptions,
   ) {
     this.modifiers = initialModifiers;
+    this.signatureOpts = signatureOpts ?? undefined;
   }
 
   /**
@@ -120,7 +125,7 @@ class ParamBuilder {
    * @returns A copy of this param builder
    */
   public clone(this: this): ParamBuilder {
-    return new ParamBuilder(new Map(this.modifiers));
+    return new ParamBuilder(new Map(this.modifiers), this.signatureOpts);
   }
 
   /**
@@ -163,12 +168,14 @@ class ParamBuilder {
 
     // If no signature is calculated add a - as placeholder
     // See https://github.com/imgproxy/imgproxy/blob/b243a08254b9ca7da2c628429cd870c111ece5c9/docs/signing_the_url.md
-    const finalPath = signature
+
+    const effectiveSignature = this.signatureOpts ?? signature;
+    const finalPath = effectiveSignature
       ? `${generateSignature(
           res,
-          signature.key,
-          signature.salt,
-          signature.size ?? 32,
+          effectiveSignature.key,
+          effectiveSignature.salt,
+          effectiveSignature.size ?? 32,
         )}/${res}`
       : `-/${res}`;
 
