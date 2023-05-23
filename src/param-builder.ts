@@ -55,7 +55,7 @@ import watermarkText from './transformers/watermark-text.js';
 import watermarkUrl from './transformers/watermark-url.js';
 import zoom from './transformers/zoom.js';
 
-import { encodeFilePath, generateSignature } from './common.js';
+import * as common from './common.js';
 
 /**
  * The build options
@@ -101,6 +101,12 @@ export type SignatureOptions = {
      * Defaults to 32
      */
     size?: number;
+
+    // TODO: Find a better name
+    crypto?: {
+      encodeFilePath: typeof common.encodeFilePath;
+      generateSignature: typeof common.generateSignature;
+    },
 };
 
 class ParamBuilder {
@@ -161,21 +167,25 @@ class ParamBuilder {
     const mods = Array.from(this.modifiers.values());
     if (!path) return mods.join('/');
 
+    const effectiveSignOptions = this.signatureOpts ?? signature;
+
+    const encodeFilePath = effectiveSignOptions?.crypto?.encodeFilePath ?? common.encodeFilePath;
+
     if (path && plain) mods.push('plain', path);
     else mods.push(encodeFilePath(path));
 
     const res = mods.join('/');
 
+    const generateSignature = effectiveSignOptions?.crypto?.generateSignature ?? common.generateSignature;
+
     // If no signature is calculated add a - as placeholder
     // See https://github.com/imgproxy/imgproxy/blob/b243a08254b9ca7da2c628429cd870c111ece5c9/docs/signing_the_url.md
-
-    const effectiveSignature = this.signatureOpts ?? signature;
-    const finalPath = effectiveSignature
+    const finalPath = effectiveSignOptions
       ? `${generateSignature(
           res,
-          effectiveSignature.key,
-          effectiveSignature.salt,
-          effectiveSignature.size ?? 32,
+          effectiveSignOptions.key,
+          effectiveSignOptions.salt,
+          effectiveSignOptions.size ?? 32,
         )}/${res}`
       : `-/${res}`;
 
